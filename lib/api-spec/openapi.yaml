@@ -1,22 +1,33 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: KaraoKê Queue API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: sessions
+    description: Session management
+  - name: participants
+    description: Participant management
+  - name: songs
+    description: Song search and cache
+  - name: queue
+    description: Queue management
+  - name: reservations
+    description: Reservation management
+  - name: operators
+    description: Operator auth and management
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +35,654 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── SESSIONS ──────────────────────────────────────────────────────────────
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List all sessions
+      responses:
+        "200":
+          description: Sessions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a new session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+
+  /sessions/active:
+    get:
+      operationId: getActiveSession
+      tags: [sessions]
+      summary: Get the current active (OPEN or PAUSED) session
+      responses:
+        "200":
+          description: Active session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get session by ID
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/status:
+    patch:
+      operationId: updateSessionStatus
+      tags: [sessions]
+      summary: Open, pause or close a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionStatusUpdate"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          description: Invalid transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── PARTICIPANTS ──────────────────────────────────────────────────────────
+  /participants/by-cpf/{cpf}:
+    get:
+      operationId: getParticipantByCpf
+      tags: [participants]
+      summary: Look up participant by CPF
+      parameters:
+        - name: cpf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Participant found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Participant"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /participants:
+    post:
+      operationId: createParticipant
+      tags: [participants]
+      summary: Register a new participant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Participant"
+        "409":
+          description: CPF already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── SONGS ─────────────────────────────────────────────────────────────────
+  /songs/search:
+    get:
+      operationId: searchSongs
+      tags: [songs]
+      summary: Search YouTube for embeddable karaoke songs
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SongSearchResult"
+
+  # ── QUEUE ─────────────────────────────────────────────────────────────────
+  /sessions/{sessionId}/queue:
+    get:
+      operationId: getQueue
+      tags: [queue]
+      summary: Get full queue for a session (QUEUED + PLAYING entries)
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Queue entries ordered by position
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QueueEntry"
+
+  # ── RESERVATIONS ──────────────────────────────────────────────────────────
+  /sessions/{sessionId}/reservations:
+    post:
+      operationId: createReservation
+      tags: [reservations]
+      summary: Reserve a song in the queue
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservationInput"
+      responses:
+        "201":
+          description: Reservation created, queue position returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueEntry"
+        "400":
+          description: Validation error (invalid CPF, duplicate active reservation, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/reservations/by-cpf/{cpf}:
+    get:
+      operationId: getReservationsByCpf
+      tags: [reservations]
+      summary: Get reservation history for a CPF in a session (extrato)
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cpf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reservations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reservation"
+
+  # ── OPERATOR ACTIONS ──────────────────────────────────────────────────────
+  /queue-entries/{entryId}/finish:
+    post:
+      operationId: finishQueueEntry
+      tags: [queue]
+      summary: Operator marks the current song as finished
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /queue-entries/{entryId}/skip:
+    post:
+      operationId: skipQueueEntry
+      tags: [queue]
+      summary: Operator skips the current song
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+
+  /queue-entries/{entryId}/remove:
+    delete:
+      operationId: removeQueueEntry
+      tags: [queue]
+      summary: Operator removes a song from the queue
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+
+  /queue-entries/{entryId}/play:
+    post:
+      operationId: playQueueEntry
+      tags: [queue]
+      summary: Mark a queue entry as now playing
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+
+  # ── OPERATOR AUTH ─────────────────────────────────────────────────────────
+  /operators/login:
+    post:
+      operationId: operatorLogin
+      tags: [operators]
+      summary: Operator login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperatorCredentials"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorSession"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /operators/logout:
+    post:
+      operationId: operatorLogout
+      tags: [operators]
+      summary: Operator logout
+      responses:
+        "200":
+          description: Logged out
+
+  /operators/me:
+    get:
+      operationId: getOperatorMe
+      tags: [operators]
+      summary: Get current logged-in operator
+      responses:
+        "200":
+          description: Current operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorSession"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── WOW / SUMMARY ─────────────────────────────────────────────────────────
+  /sessions/{sessionId}/summary:
+    get:
+      operationId: getSessionSummary
+      tags: [sessions]
+      summary: Session summary stats (total songs, participants, completed, skipped)
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSummary"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Session:
+      type: object
+      required: [id, name, status, openedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, PAUSED, CLOSED]
+        openedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SessionInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    SessionStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [OPEN, PAUSED, CLOSED]
+
+    SessionSummary:
+      type: object
+      required: [sessionId, totalReservations, totalParticipants, completed, skipped, removed, queued]
+      properties:
+        sessionId:
+          type: string
+        totalReservations:
+          type: integer
+        totalParticipants:
+          type: integer
+        completed:
+          type: integer
+        skipped:
+          type: integer
+        removed:
+          type: integer
+        queued:
+          type: integer
+
+    Participant:
+      type: object
+      required: [id, cpf, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        cpf:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ParticipantInput:
+      type: object
+      required: [cpf, name]
+      properties:
+        cpf:
+          type: string
+          minLength: 11
+          maxLength: 11
+        name:
+          type: string
+          minLength: 1
+
+    SongSearchResult:
+      type: object
+      required: [youtubeId, title, channelName, thumbnailUrl]
+      properties:
+        youtubeId:
+          type: string
+        title:
+          type: string
+        channelName:
+          type: string
+        thumbnailUrl:
+          type: string
+
+    Song:
+      type: object
+      required: [id, youtubeId, title, channelName, thumbnailUrl, embeddable, cachedAt, updatedAt]
+      properties:
+        id:
+          type: string
+        youtubeId:
+          type: string
+        title:
+          type: string
+        channelName:
+          type: string
+        thumbnailUrl:
+          type: string
+        embeddable:
+          type: boolean
+        cachedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    QueueEntry:
+      type: object
+      required: [id, sessionId, reservationId, position, addedAt, reservation]
+      properties:
+        id:
+          type: string
+        sessionId:
+          type: string
+        reservationId:
+          type: string
+        position:
+          type: integer
+        addedAt:
+          type: string
+          format: date-time
+        reservation:
+          $ref: "#/components/schemas/Reservation"
+
+    Reservation:
+      type: object
+      required: [id, sessionId, participantId, songId, status, requestedAt, participant, song]
+      properties:
+        id:
+          type: string
+        sessionId:
+          type: string
+        participantId:
+          type: string
+        songId:
+          type: string
+        status:
+          type: string
+          enum: [QUEUED, PLAYING, FINISHED, SKIPPED, REMOVED]
+        requestedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+        finishedAt:
+          type: ["string", "null"]
+          format: date-time
+        skippedAt:
+          type: ["string", "null"]
+          format: date-time
+        removedAt:
+          type: ["string", "null"]
+          format: date-time
+        participant:
+          $ref: "#/components/schemas/Participant"
+        song:
+          $ref: "#/components/schemas/Song"
+
+    ReservationInput:
+      type: object
+      required: [cpf, name, youtubeId, title, channelName, thumbnailUrl]
+      properties:
+        cpf:
+          type: string
+          minLength: 11
+          maxLength: 11
+        name:
+          type: string
+          minLength: 1
+        youtubeId:
+          type: string
+        title:
+          type: string
+        channelName:
+          type: string
+        thumbnailUrl:
+          type: string
+
+    OperatorCredentials:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    OperatorSession:
+      type: object
+      required: [id, username, displayName]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string

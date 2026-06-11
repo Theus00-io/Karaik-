@@ -1,0 +1,178 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// KaraoKê Queue — Prisma Schema v1.0
+// Baseado no PRD v1.0
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PARTICIPANT
+// Representa quem faz reservas. Identificado por CPF (único).
+// Um participante pode ter muitas reservas ao longo de várias sessões.
+// ─────────────────────────────────────────────────────────────────────────────
+model Participant {
+  id        String   @id @default(cuid())
+  cpf       String   @unique               // CPF sem máscara: "12345678901"
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reservations Reservation[]
+
+  @@map("participants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION
+// Representa uma noite/evento de karaokê.
+// Agrupa filas e reservas por sessão, permitindo histórico multi-evento.
+// ─────────────────────────────────────────────────────────────────────────────
+model Session {
+  id          String        @id @default(cuid())
+  name        String                              // Ex: "Karaokê Bar do João — 07/06/2025"
+  status      SessionStatus @default(OPEN)
+  openedAt    DateTime      @default(now())
+  closedAt    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  queue        QueueEntry[]
+  reservations Reservation[]
+
+  @@map("sessions")
+}
+
+enum SessionStatus {
+  OPEN      // Sessão ativa, aceitando reservas
+  PAUSED    // Operador pausou temporariamente
+  CLOSED    // Sessão encerrada
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SONG
+// Cache de metadados de vídeos do YouTube já buscados.
+// Evita chamadas repetidas à API para músicas populares.
+// ─────────────────────────────────────────────────────────────────────────────
+model Song {
+  id          String   @id @default(cuid())
+  youtubeId   String   @unique              // Ex: "dQw4w9WgXcQ"
+  title       String
+  channelName String
+  thumbnailUrl String
+  embeddable  Boolean  @default(true)       // Sempre true (só salvamos vídeos embeddáveis)
+  cachedAt    DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reservations Reservation[]
+
+  @@map("songs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESERVATION
+// Registro imutável de cada vez que um participante reservou uma música
+// em uma sessão. Funciona como o "extrato" do PRD.
+// ─────────────────────────────────────────────────────────────────────────────
+model Reservation {
+  id            String            @id @default(cuid())
+  sessionId     String
+  participantId String
+  songId        String
+  status        ReservationStatus @default(QUEUED)
+  requestedAt   DateTime          @default(now())
+  startedAt     DateTime?                           // Quando começou a tocar
+  finishedAt    DateTime?                           // Quando terminou / foi concluída
+  skippedAt     DateTime?                           // Se foi pulada pelo operador
+  removedAt     DateTime?                           // Se foi removida da fila manualmente
+
+  session     Session     @relation(fields: [sessionId], references: [id])
+  participant Participant @relation(fields: [participantId], references: [id])
+  song        Song        @relation(fields: [songId], references: [id])
+  queueEntry  QueueEntry?
+
+  @@map("reservations")
+}
+
+enum ReservationStatus {
+  QUEUED     // Aguardando na fila
+  PLAYING    // Tocando agora
+  FINISHED   // Concluída normalmente (vídeo chegou ao fim)
+  SKIPPED    // Pulada pelo operador (⏭)
+  REMOVED    // Removida manualmente (✕)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUEUE ENTRY
+// Estado atual da fila — apenas reservas com status QUEUED ou PLAYING.
+// position determina a ordem de exibição.
+// Quando a reserva é concluída/pulada/removida, o registro é deletado daqui.
+// ─────────────────────────────────────────────────────────────────────────────
+model QueueEntry {
+  id            String   @id @default(cuid())
+  sessionId     String
+  reservationId String   @unique
+  position      Int                        // Ordem na fila (1 = próximo a tocar)
+  addedAt       DateTime @default(now())
+
+  session     Session     @relation(fields: [sessionId], references: [id])
+  reservation Reservation @relation(fields: [reservationId], references: [id])
+
+  @@unique([sessionId, position])          // Duas músicas não podem ter a mesma posição na mesma sessão
+  @@index([sessionId, position])
+  @@map("queue_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OPERATOR
+// Usuário com acesso ao painel de controle (concluir/pular/remover músicas,
+// abrir/fechar sessões). Separado de Participant por segurança (RN — futuro v1.2).
+// ─────────────────────────────────────────────────────────────────────────────
+model Operator {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String                       // bcrypt hash
+  displayName  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@map("operators")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG
+// Registra ações do operador para rastreabilidade.
+// Ex: quem removeu qual música, quem encerrou a sessão.
+// ─────────────────────────────────────────────────────────────────────────────
+model AuditLog {
+  id          String      @id @default(cuid())
+  operatorId  String
+  action      AuditAction
+  entityType  String                        // "Reservation" | "Session" | "QueueEntry"
+  entityId    String
+  metadata    Json?                         // Dados extras (ex: posição anterior, título da música)
+  occurredAt  DateTime    @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+
+  @@index([operatorId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  SONG_REMOVED    // Operador removeu música da fila (✕)
+  SONG_SKIPPED    // Operador pulou música (⏭)
+  SONG_FINISHED   // Operador concluiu música (✓)
+  SESSION_OPENED
+  SESSION_PAUSED
+  SESSION_CLOSED
+}

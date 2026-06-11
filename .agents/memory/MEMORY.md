@@ -1,0 +1,3 @@
+- [Password hashing approach](password-hashing.md) — Use Node.js crypto.pbkdf2Sync instead of bcrypt to avoid build script approval prompts.
+- [Tailwind v4 dark mode](tailwind-v4-dark.md) — `@apply dark` is invalid in Tailwind v4; add `dark` class to html element in main.tsx instead.
+- [Operator session storage](operator-sessions.md) — Operator sessions stored in-memory Map, not DB; lost on server restart by design.
