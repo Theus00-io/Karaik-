@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
-  useGetActiveSession,
   useGetQueue,
   useCreateReservation,
   useSearchSongs,
@@ -9,7 +8,7 @@ import {
   getGetQueueQueryKey,
   getGetReservationsByCpfQueryKey,
 } from "@workspace/api-client-react";
-import type { SongSearchResult, QueueEntry } from "@workspace/api-client-react";
+import type { SongSearchResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppCtx } from "../contexts/AppContext";
 import { formatCPF, unmaskCPF, maskCPFPartial } from "../lib/cpf";
@@ -28,8 +27,86 @@ import {
   Loader2,
   Play,
   Settings,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function YouTubePreviewModal({
+  song,
+  onClose,
+  onSelect,
+}: {
+  song: SongSearchResult;
+  onClose: () => void;
+  onSelect: () => void;
+}) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl bg-card border border-border rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
+          data-testid="button-close-preview"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Embed */}
+        <div className="aspect-video bg-black">
+          <iframe
+            src={`https://www.youtube.com/embed/${song.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="w-full h-full"
+            title={song.title}
+          />
+        </div>
+
+        {/* Info + actions */}
+        <div className="p-4 flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold leading-snug line-clamp-2">{song.title}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{song.channelName}</p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <a
+              href={`https://www.youtube.com/watch?v=${song.youtubeId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-2 px-3 rounded-lg hover:bg-muted/50"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              YouTube
+            </a>
+            <Button
+              onClick={onSelect}
+              className="bg-primary hover:bg-primary/90 gap-1.5"
+              data-testid="button-select-from-preview"
+            >
+              <Mic2 className="w-4 h-4" />
+              Escolher
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -60,6 +137,7 @@ export default function Home() {
   const [selectedSong, setSelectedSong] = useState<SongSearchResult | null>(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showExtrato, setShowExtrato] = useState(false);
+  const [previewSong, setPreviewSong] = useState<SongSearchResult | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const debouncedSearch = useDebounce(searchQuery, 500);
@@ -259,11 +337,21 @@ export default function Home() {
                   </label>
                   {selectedSong ? (
                     <div className="flex items-center gap-3 p-3 rounded-xl bg-card border border-primary/40">
-                      <img
-                        src={selectedSong.thumbnailUrl}
-                        alt=""
-                        className="w-12 h-9 rounded-lg object-cover flex-shrink-0"
-                      />
+                      <button
+                        onClick={() => setPreviewSong(selectedSong)}
+                        className="relative group flex-shrink-0"
+                        title="Pré-visualizar"
+                        data-testid="button-preview-selected"
+                      >
+                        <img
+                          src={selectedSong.thumbnailUrl}
+                          alt=""
+                          className="w-14 h-10 rounded-lg object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-5 h-5 text-white fill-white" />
+                        </div>
+                      </button>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium leading-tight line-clamp-1">
                           {selectedSong.title}
@@ -301,31 +389,52 @@ export default function Home() {
                       </div>
 
                       {showSearchResults && searchResults && searchResults.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border border-border bg-card shadow-2xl max-h-64 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border border-border bg-card shadow-2xl max-h-72 overflow-y-auto">
                           {searchResults.map((song) => (
-                            <button
+                            <div
                               key={song.youtubeId}
-                              onClick={() => {
-                                setSelectedSong(song);
-                                setShowSearchResults(false);
-                                setSearchQuery("");
-                              }}
-                              className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors text-left border-b border-border last:border-0"
+                              className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border last:border-0 group"
                               data-testid={`song-result-${song.youtubeId}`}
                             >
-                              <img
-                                src={song.thumbnailUrl}
-                                alt=""
-                                className="w-14 h-10 rounded-lg object-cover flex-shrink-0"
-                              />
-                              <div className="flex-1 min-w-0">
+                              {/* Thumbnail with play-preview overlay */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewSong(song);
+                                }}
+                                className="relative flex-shrink-0"
+                                title="Pré-visualizar"
+                                data-testid={`button-preview-${song.youtubeId}`}
+                              >
+                                <img
+                                  src={song.thumbnailUrl}
+                                  alt=""
+                                  className="w-16 h-11 rounded-lg object-cover"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/55 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center">
+                                    <Play className="w-3.5 h-3.5 text-black fill-black ml-0.5" />
+                                  </div>
+                                </div>
+                              </button>
+
+                              {/* Title + channel — click to select */}
+                              <button
+                                onClick={() => {
+                                  setSelectedSong(song);
+                                  setShowSearchResults(false);
+                                  setSearchQuery("");
+                                }}
+                                className="flex-1 min-w-0 text-left"
+                              >
                                 <p className="text-sm font-medium line-clamp-1">{song.title}</p>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   {song.channelName}
                                 </p>
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            </button>
+                              </button>
+
+                              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
                           ))}
                         </div>
                       )}
@@ -510,6 +619,20 @@ export default function Home() {
             )}
           </div>
         </div>
+      )}
+
+      {/* YouTube Preview Modal */}
+      {previewSong && (
+        <YouTubePreviewModal
+          song={previewSong}
+          onClose={() => setPreviewSong(null)}
+          onSelect={() => {
+            setSelectedSong(previewSong);
+            setShowSearchResults(false);
+            setSearchQuery("");
+            setPreviewSong(null);
+          }}
+        />
       )}
     </div>
   );
