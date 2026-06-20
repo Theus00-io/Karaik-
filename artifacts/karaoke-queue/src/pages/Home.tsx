@@ -11,7 +11,7 @@ import {
 import type { SongSearchResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppCtx } from "../contexts/AppContext";
-import { formatCPF, unmaskCPF, maskCPFPartial } from "../lib/cpf";
+import { formatCPF, unmaskCPF, maskCPFPartial, validateCPF } from "../lib/cpf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -142,7 +142,7 @@ export default function Home() {
 
   const debouncedSearch = useDebounce(searchQuery, 500);
   const unmaskCpf = unmaskCPF(cpf);
-  const isValidCpf = unmaskCpf.length === 11;
+  const isValidCpf = validateCPF(unmaskCpf);
 
   const { data: queue, isLoading: isLoadingQueue } = useGetQueue(
     activeSession?.id || "",
@@ -200,7 +200,7 @@ export default function Home() {
 
   const handleReserve = () => {
     if (!activeSession) return toast.error("Nenhuma sessão ativa.");
-    if (!isValidCpf) return toast.error("CPF inválido. Digite 11 dígitos.");
+    if (!isValidCpf) return toast.error("CPF inválido.");
     if (!name.trim()) return toast.error("Digite seu nome.");
     if (!selectedSong) return toast.error("Selecione uma música.");
 
@@ -311,9 +311,12 @@ export default function Home() {
                       const formatted = formatCPF(e.target.value);
                       if (unmaskCPF(formatted).length <= 11) setCpf(formatted);
                     }}
-                    className="bg-card border-border focus-visible:ring-primary/50 font-mono"
+                    className={`bg-card border-border focus-visible:ring-primary/50 font-mono ${unmaskCpf.length === 11 && !isValidCpf ? "border-destructive focus-visible:ring-destructive/50" : ""}`}
                     data-testid="input-cpf"
                   />
+                  {unmaskCpf.length === 11 && !isValidCpf && (
+                    <p className="text-xs text-destructive mt-1">CPF inválido.</p>
+                  )}
                 </div>
 
                 {/* Name */}
