@@ -7,6 +7,7 @@ import Home from "@/pages/Home";
 import Player from "@/pages/Player";
 import Operator from "@/pages/Operator";
 import NotFound from "@/pages/not-found";
+import QRPage from "@/pages/QR";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/player" component={Player} />
       <Route path="/operator" component={Operator} />
+      <Route path="/qr" component={QRPage} />
       <Route component={NotFound} />
     </Switch>
   );
