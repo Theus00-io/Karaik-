@@ -28,6 +28,8 @@ import {
   Play,
   Settings,
   ExternalLink,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -138,7 +140,37 @@ export default function Home() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showExtrato, setShowExtrato] = useState(false);
   const [previewSong, setPreviewSong] = useState<SongSearchResult | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const hiddenKey = activeSession?.id && unmaskCPF(cpf).length === 11
+    ? `extratoHidden:${activeSession.id}:${unmaskCPF(cpf)}`
+    : null;
+
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => {
+    if (!hiddenKey) return new Set();
+    try {
+      const raw = localStorage.getItem(hiddenKey);
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    if (!hiddenKey) return;
+    try {
+      localStorage.setItem(hiddenKey, JSON.stringify([...hiddenIds]));
+    } catch { /* ignore */ }
+  }, [hiddenIds, hiddenKey]);
+
+  const toggleHideEntry = (id: string) => {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const debouncedSearch = useDebounce(searchQuery, 500);
   const unmaskCpf = unmaskCPF(cpf);
@@ -485,35 +517,68 @@ export default function Home() {
                         Nenhuma reserva nesta sessão.
                       </p>
                     ) : (
-                      extrato.map((r) => {
-                        const s = STATUS_LABELS[r.status];
-                        return (
-                          <div
-                            key={r.id}
-                            className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border"
-                            data-testid={`extrato-item-${r.id}`}
+                      <>
+                        {extrato
+                          .filter((r) => showHidden || !hiddenIds.has(r.id))
+                          .map((r) => {
+                            const s = STATUS_LABELS[r.status];
+                            const isHidden = hiddenIds.has(r.id);
+                            return (
+                              <div
+                                key={r.id}
+                                className={cn(
+                                  "flex items-center gap-3 p-3 rounded-xl bg-card border border-border group transition-opacity",
+                                  isHidden && "opacity-40"
+                                )}
+                                data-testid={`extrato-item-${r.id}`}
+                              >
+                                <img
+                                  src={r.song.thumbnailUrl}
+                                  alt=""
+                                  className="w-12 h-9 rounded-lg object-cover flex-shrink-0"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className={cn("text-sm font-medium line-clamp-1", isHidden && "line-through text-muted-foreground")}>
+                                    {r.song.title}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{r.song.channelName}</p>
+                                </div>
+                                {!isHidden && (
+                                  <span
+                                    className={cn(
+                                      "flex items-center gap-1 text-xs font-medium",
+                                      s?.color
+                                    )}
+                                  >
+                                    {s?.icon}
+                                    {s?.label}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => toggleHideEntry(r.id)}
+                                  className="ml-1 p-1 rounded-lg text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                                  title={isHidden ? "Mostrar no extrato" : "Ocultar do extrato"}
+                                >
+                                  {isHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            );
+                          })}
+
+                        {/* Hidden items footer */}
+                        {hiddenIds.size > 0 && (
+                          <button
+                            onClick={() => setShowHidden((v) => !v)}
+                            className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground py-1.5 flex items-center justify-center gap-1.5 transition-colors"
                           >
-                            <img
-                              src={r.song.thumbnailUrl}
-                              alt=""
-                              className="w-12 h-9 rounded-lg object-cover flex-shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium line-clamp-1">{r.song.title}</p>
-                              <p className="text-xs text-muted-foreground">{r.song.channelName}</p>
-                            </div>
-                            <span
-                              className={cn(
-                                "flex items-center gap-1 text-xs font-medium",
-                                s?.color
-                              )}
-                            >
-                              {s?.icon}
-                              {s?.label}
-                            </span>
-                          </div>
-                        );
-                      })
+                            {showHidden ? (
+                              <><EyeOff className="w-3 h-3" /> Esconder {hiddenIds.size} {hiddenIds.size === 1 ? "oculta" : "ocultas"}</>
+                            ) : (
+                              <><Eye className="w-3 h-3" /> {hiddenIds.size} {hiddenIds.size === 1 ? "música oculta" : "músicas ocultas"}</>
+                            )}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
