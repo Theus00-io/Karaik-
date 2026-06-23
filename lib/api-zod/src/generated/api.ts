@@ -161,12 +161,13 @@ export const GetQueueResponseItem = zod.object({
   "sessionId": zod.string(),
   "participantId": zod.string(),
   "songId": zod.string(),
-  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED']),
+  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED', 'CANCELLED']),
   "requestedAt": zod.coerce.date(),
   "startedAt": zod.coerce.date().nullish(),
   "finishedAt": zod.coerce.date().nullish(),
   "skippedAt": zod.coerce.date().nullish(),
   "removedAt": zod.coerce.date().nullish(),
+  "cancelledAt": zod.coerce.date().nullish(),
   "participant": zod.object({
   "id": zod.string(),
   "cpf": zod.string(),
@@ -213,6 +214,50 @@ export const CreateReservationBody = zod.object({
 
 
 /**
+ * @summary Participant cancels their own QUEUED reservation
+ */
+export const CancelReservationParams = zod.object({
+  "sessionId": zod.coerce.string(),
+  "reservationId": zod.coerce.string()
+})
+
+export const CancelReservationBody = zod.object({
+  "cpf": zod.string()
+})
+
+export const CancelReservationResponse = zod.object({
+  "id": zod.string(),
+  "sessionId": zod.string(),
+  "participantId": zod.string(),
+  "songId": zod.string(),
+  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED', 'CANCELLED']),
+  "requestedAt": zod.coerce.date(),
+  "startedAt": zod.coerce.date().nullish(),
+  "finishedAt": zod.coerce.date().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "removedAt": zod.coerce.date().nullish(),
+  "cancelledAt": zod.coerce.date().nullish(),
+  "participant": zod.object({
+  "id": zod.string(),
+  "cpf": zod.string(),
+  "name": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "song": zod.object({
+  "id": zod.string(),
+  "youtubeId": zod.string(),
+  "title": zod.string(),
+  "channelName": zod.string(),
+  "thumbnailUrl": zod.string(),
+  "embeddable": zod.boolean(),
+  "cachedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+})
+
+
+/**
  * @summary Get reservation history for a CPF in a session (extrato)
  */
 export const GetReservationsByCpfParams = zod.object({
@@ -225,12 +270,13 @@ export const GetReservationsByCpfResponseItem = zod.object({
   "sessionId": zod.string(),
   "participantId": zod.string(),
   "songId": zod.string(),
-  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED']),
+  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED', 'CANCELLED']),
   "requestedAt": zod.coerce.date(),
   "startedAt": zod.coerce.date().nullish(),
   "finishedAt": zod.coerce.date().nullish(),
   "skippedAt": zod.coerce.date().nullish(),
   "removedAt": zod.coerce.date().nullish(),
+  "cancelledAt": zod.coerce.date().nullish(),
   "participant": zod.object({
   "id": zod.string(),
   "cpf": zod.string(),
@@ -264,12 +310,13 @@ export const FinishQueueEntryResponse = zod.object({
   "sessionId": zod.string(),
   "participantId": zod.string(),
   "songId": zod.string(),
-  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED']),
+  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED', 'CANCELLED']),
   "requestedAt": zod.coerce.date(),
   "startedAt": zod.coerce.date().nullish(),
   "finishedAt": zod.coerce.date().nullish(),
   "skippedAt": zod.coerce.date().nullish(),
   "removedAt": zod.coerce.date().nullish(),
+  "cancelledAt": zod.coerce.date().nullish(),
   "participant": zod.object({
   "id": zod.string(),
   "cpf": zod.string(),
@@ -302,12 +349,13 @@ export const SkipQueueEntryResponse = zod.object({
   "sessionId": zod.string(),
   "participantId": zod.string(),
   "songId": zod.string(),
-  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED']),
+  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED', 'CANCELLED']),
   "requestedAt": zod.coerce.date(),
   "startedAt": zod.coerce.date().nullish(),
   "finishedAt": zod.coerce.date().nullish(),
   "skippedAt": zod.coerce.date().nullish(),
   "removedAt": zod.coerce.date().nullish(),
+  "cancelledAt": zod.coerce.date().nullish(),
   "participant": zod.object({
   "id": zod.string(),
   "cpf": zod.string(),
@@ -340,12 +388,13 @@ export const RemoveQueueEntryResponse = zod.object({
   "sessionId": zod.string(),
   "participantId": zod.string(),
   "songId": zod.string(),
-  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED']),
+  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED', 'CANCELLED']),
   "requestedAt": zod.coerce.date(),
   "startedAt": zod.coerce.date().nullish(),
   "finishedAt": zod.coerce.date().nullish(),
   "skippedAt": zod.coerce.date().nullish(),
   "removedAt": zod.coerce.date().nullish(),
+  "cancelledAt": zod.coerce.date().nullish(),
   "participant": zod.object({
   "id": zod.string(),
   "cpf": zod.string(),
@@ -378,12 +427,13 @@ export const PlayQueueEntryResponse = zod.object({
   "sessionId": zod.string(),
   "participantId": zod.string(),
   "songId": zod.string(),
-  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED']),
+  "status": zod.enum(['QUEUED', 'PLAYING', 'FINISHED', 'SKIPPED', 'REMOVED', 'CANCELLED']),
   "requestedAt": zod.coerce.date(),
   "startedAt": zod.coerce.date().nullish(),
   "finishedAt": zod.coerce.date().nullish(),
   "skippedAt": zod.coerce.date().nullish(),
   "removedAt": zod.coerce.date().nullish(),
+  "cancelledAt": zod.coerce.date().nullish(),
   "participant": zod.object({
   "id": zod.string(),
   "cpf": zod.string(),

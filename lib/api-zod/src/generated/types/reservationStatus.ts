@@ -15,4 +15,5 @@ export const ReservationStatus = {
   FINISHED: 'FINISHED',
   SKIPPED: 'SKIPPED',
   REMOVED: 'REMOVED',
+  CANCELLED: 'CANCELLED',
 } as const;

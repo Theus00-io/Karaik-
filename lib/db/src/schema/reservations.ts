@@ -5,7 +5,7 @@ import { sessionsTable } from "./sessions";
 import { participantsTable } from "./participants";
 import { songsTable } from "./songs";
 
-export const reservationStatusEnum = pgEnum("reservation_status", ["QUEUED", "PLAYING", "FINISHED", "SKIPPED", "REMOVED"]);
+export const reservationStatusEnum = pgEnum("reservation_status", ["QUEUED", "PLAYING", "FINISHED", "SKIPPED", "REMOVED", "CANCELLED"]);
 
 export const reservationsTable = pgTable("reservations", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -18,6 +18,7 @@ export const reservationsTable = pgTable("reservations", {
   finishedAt: timestamp("finished_at", { withTimezone: true }),
   skippedAt: timestamp("skipped_at", { withTimezone: true }),
   removedAt: timestamp("removed_at", { withTimezone: true }),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
 });
 
 export const insertReservationSchema = createInsertSchema(reservationsTable).omit({ id: true, requestedAt: true, startedAt: true, finishedAt: true, skippedAt: true, removedAt: true });

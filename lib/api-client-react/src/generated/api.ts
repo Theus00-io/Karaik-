@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CancelReservationBody,
   ErrorResponse,
   HealthStatus,
   OperatorCredentials,
@@ -879,6 +880,80 @@ export const useCreateReservation = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getCreateReservationMutationOptions(options));
+    }
+
+export const getCancelReservationUrl = (sessionId: string,
+    reservationId: string,) => {
+
+
+
+
+  return `/api/sessions/${sessionId}/reservations/${reservationId}/cancel`
+}
+
+/**
+ * @summary Participant cancels their own QUEUED reservation
+ */
+export const cancelReservation = async (sessionId: string,
+    reservationId: string,
+    cancelReservationBody: CancelReservationBody, options?: RequestInit): Promise<Reservation> => {
+
+  return customFetch<Reservation>(getCancelReservationUrl(sessionId,reservationId),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cancelReservationBody,)
+  }
+);}
+
+
+
+
+export const getCancelReservationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelReservation>>, TError,{sessionId: string;reservationId: string;data: BodyType<CancelReservationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelReservation>>, TError,{sessionId: string;reservationId: string;data: BodyType<CancelReservationBody>}, TContext> => {
+
+const mutationKey = ['cancelReservation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelReservation>>, {sessionId: string;reservationId: string;data: BodyType<CancelReservationBody>}> = (props) => {
+          const {sessionId,reservationId,data} = props ?? {};
+
+          return  cancelReservation(sessionId,reservationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelReservationMutationResult = NonNullable<Awaited<ReturnType<typeof cancelReservation>>>
+    export type CancelReservationMutationBody = BodyType<CancelReservationBody>
+    export type CancelReservationMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Participant cancels their own QUEUED reservation
+ */
+export const useCancelReservation = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelReservation>>, TError,{sessionId: string;reservationId: string;data: BodyType<CancelReservationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelReservation>>,
+        TError,
+        {sessionId: string;reservationId: string;data: BodyType<CancelReservationBody>},
+        TContext
+      > => {
+      return useMutation(getCancelReservationMutationOptions(options));
     }
 
 export const getGetReservationsByCpfUrl = (sessionId: string,

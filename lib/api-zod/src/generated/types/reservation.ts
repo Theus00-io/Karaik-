@@ -24,6 +24,8 @@ export interface Reservation {
   skippedAt?: Date | null;
   /** @nullable */
   removedAt?: Date | null;
+  /** @nullable */
+  cancelledAt?: Date | null;
   participant: Participant;
   song: Song;
 }

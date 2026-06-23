@@ -106,6 +106,7 @@ export const ReservationStatus = {
   FINISHED: 'FINISHED',
   SKIPPED: 'SKIPPED',
   REMOVED: 'REMOVED',
+  CANCELLED: 'CANCELLED',
 } as const;
 
 export interface Reservation {
@@ -123,6 +124,8 @@ export interface Reservation {
   skippedAt?: string | null;
   /** @nullable */
   removedAt?: string | null;
+  /** @nullable */
+  cancelledAt?: string | null;
   participant: Participant;
   song: Song;
 }
@@ -163,5 +166,9 @@ export interface OperatorSession {
 
 export type SearchSongsParams = {
 q: string;
+};
+
+export type CancelReservationBody = {
+  cpf: string;
 };
 

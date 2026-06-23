@@ -6,7 +6,7 @@ import {
   participantsTable,
   songsTable,
 } from "@workspace/db";
-import { eq, and, inArray, max } from "drizzle-orm";
+import { eq, and, inArray, max, gt, sql } from "drizzle-orm";
 import { CreateReservationBody } from "@workspace/api-zod";
 
 const router = Router();
@@ -116,6 +116,65 @@ router.post("/sessions/:sessionId/reservations", async (req, res) => {
     ...entry,
     reservation: { ...reservation, participant, song },
   });
+});
+
+router.delete("/sessions/:sessionId/reservations/:reservationId/cancel", async (req, res) => {
+  const { sessionId, reservationId } = req.params;
+  const { cpf } = req.body as { cpf?: string };
+
+  if (!cpf) return res.status(400).json({ error: "CPF obrigatório" });
+
+  const [reservation] = await db
+    .select()
+    .from(reservationsTable)
+    .where(
+      and(
+        eq(reservationsTable.id, reservationId),
+        eq(reservationsTable.sessionId, sessionId)
+      )
+    );
+
+  if (!reservation) return res.status(404).json({ error: "Reserva não encontrada" });
+  if (reservation.status !== "QUEUED") {
+    return res.status(400).json({ error: "Só é possível cancelar reservas com status QUEUED" });
+  }
+
+  const [participant] = await db
+    .select()
+    .from(participantsTable)
+    .where(eq(participantsTable.id, reservation.participantId));
+
+  if (!participant || participant.cpf !== cpf) {
+    return res.status(400).json({ error: "CPF não corresponde à reserva" });
+  }
+
+  const [entry] = await db
+    .select()
+    .from(queueEntriesTable)
+    .where(eq(queueEntriesTable.reservationId, reservationId));
+
+  if (entry) {
+    await db.delete(queueEntriesTable).where(eq(queueEntriesTable.id, entry.id));
+    await db
+      .update(queueEntriesTable)
+      .set({ position: sql`${queueEntriesTable.position} - 1` })
+      .where(
+        and(
+          eq(queueEntriesTable.sessionId, sessionId),
+          gt(queueEntriesTable.position, entry.position)
+        )
+      );
+  }
+
+  const [updated] = await db
+    .update(reservationsTable)
+    .set({ status: "CANCELLED", cancelledAt: new Date() })
+    .where(eq(reservationsTable.id, reservationId))
+    .returning();
+
+  const [song] = await db.select().from(songsTable).where(eq(songsTable.id, updated.songId));
+
+  res.json({ ...updated, participant, song });
 });
 
 router.get("/sessions/:sessionId/reservations/by-cpf/:cpf", async (req, res) => {

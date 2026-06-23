@@ -5,6 +5,7 @@ import {
   useCreateReservation,
   useSearchSongs,
   useGetReservationsByCpf,
+  useCancelReservation,
   getGetQueueQueryKey,
   getGetReservationsByCpfQueryKey,
 } from "@workspace/api-client-react";
@@ -125,6 +126,7 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; colo
   FINISHED: { label: "Concluída", icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: "text-indigo-400" },
   SKIPPED: { label: "Pulada", icon: <SkipForward className="w-3.5 h-3.5" />, color: "text-orange-400" },
   REMOVED: { label: "Removida", icon: <X className="w-3.5 h-3.5" />, color: "text-red-400" },
+  CANCELLED: { label: "Cancelada", icon: <X className="w-3.5 h-3.5" />, color: "text-muted-foreground" },
 };
 
 export default function Home() {
@@ -229,6 +231,33 @@ export default function Home() {
       },
     },
   });
+
+  const cancelReservation = useCancelReservation({
+    mutation: {
+      onSuccess: () => {
+        toast.success("Reserva cancelada.");
+        queryClient.invalidateQueries({ queryKey: getGetQueueQueryKey(activeSession?.id || "") });
+        queryClient.invalidateQueries({
+          queryKey: getGetReservationsByCpfQueryKey(activeSession?.id || "", unmaskCpf),
+        });
+      },
+      onError: (err: unknown) => {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          "Erro ao cancelar. Tente novamente.";
+        toast.error(msg);
+      },
+    },
+  });
+
+  const handleCancel = (reservationId: string) => {
+    if (!activeSession) return;
+    cancelReservation.mutate({
+      sessionId: activeSession.id,
+      reservationId,
+      data: { cpf: unmaskCpf },
+    });
+  };
 
   const handleReserve = () => {
     if (!activeSession) return toast.error("Nenhuma sessão ativa.");
@@ -554,6 +583,21 @@ export default function Home() {
                                     {s?.label}
                                   </span>
                                 )}
+
+                                {/* Cancel button — only for QUEUED */}
+                                {r.status === "QUEUED" && !isHidden && (
+                                  <button
+                                    onClick={() => handleCancel(r.id)}
+                                    disabled={cancelReservation.isPending}
+                                    className="ml-1 p-1 rounded-lg text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 disabled:opacity-30"
+                                    title="Cancelar reserva"
+                                    data-testid={`button-cancel-${r.id}`}
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+
+                                {/* Hide/show toggle */}
                                 <button
                                   onClick={() => toggleHideEntry(r.id)}
                                   className="ml-1 p-1 rounded-lg text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
