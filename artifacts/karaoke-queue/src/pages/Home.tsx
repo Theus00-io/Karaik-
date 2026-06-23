@@ -204,7 +204,7 @@ export default function Home() {
     unmaskCpf,
     {
       query: {
-        enabled: !!(activeSession?.id && isValidCpf && showExtrato),
+        enabled: !!(activeSession?.id && isValidCpf),
         refetchInterval: 3000,
         queryKey: getGetReservationsByCpfQueryKey(activeSession?.id || "", unmaskCpf),
       },
@@ -291,6 +291,18 @@ export default function Home() {
 
   const playingEntry = queue?.find((e) => e.reservation.status === "PLAYING");
   const queuedEntries = queue?.filter((e) => e.reservation.status === "QUEUED") || [];
+
+  const AVG_SONG_MIN = 3.5;
+  const myQueueEntry = isValidCpf
+    ? queue?.find((e) => e.reservation.participant.cpf === unmaskCpf && e.reservation.status === "QUEUED")
+    : undefined;
+  const songsAhead = myQueueEntry ? myQueueEntry.position - 1 : 0;
+  const estimatedMin = Math.round(songsAhead * AVG_SONG_MIN);
+
+  // Auto-open extrato when user is detected in the queue
+  useEffect(() => {
+    if (myQueueEntry) setShowExtrato(true);
+  }, [!!myQueueEntry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -380,8 +392,48 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Name */}
-                <div>
+                {/* Queue status banner — shown when user is already in queue */}
+                {myQueueEntry && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-11 h-11 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                        {myQueueEntry.position}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-foreground">Você está na fila!</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                          {myQueueEntry.reservation.song.title}
+                        </p>
+                      </div>
+                    </div>
+
+                    {songsAhead === 0 ? (
+                      <div className="flex items-center justify-center gap-2 py-1">
+                        <Mic2 className="w-4 h-4 text-primary animate-pulse" />
+                        <span className="text-sm font-bold text-primary animate-pulse">
+                          Você é o próximo!
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                        <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>
+                          {songsAhead} {songsAhead === 1 ? "música" : "músicas"} na sua frente
+                          {estimatedMin > 0 && (
+                            <> · <span className="font-semibold text-foreground">~{estimatedMin} min</span></>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-center text-muted-foreground/60">
+                      Cancele no extrato abaixo para reservar outra música.
+                    </p>
+                  </div>
+                )}
+
+                {/* Name — hidden when already in queue */}
+                {!myQueueEntry && <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                     Nome
                   </label>
@@ -392,9 +444,11 @@ export default function Home() {
                     className="bg-card border-border focus-visible:ring-primary/50"
                     data-testid="input-name"
                   />
-                </div>
+                </div>}
 
-                {/* Song Search */}
+                {/* Song Search + Reserve — hidden when already in queue */}
+                {!myQueueEntry && (
+                <>
                 <div ref={searchRef} className="relative">
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                     Buscar Música
@@ -521,6 +575,8 @@ export default function Home() {
                     </>
                   )}
                 </Button>
+                </>
+                )}
               </div>
             </div>
 
@@ -700,33 +756,45 @@ export default function Home() {
                 )}
 
                 {/* Queued entries */}
-                {queuedEntries.map((entry, idx) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-border/80 transition-colors"
-                    data-testid={`queue-entry-${entry.id}`}
-                  >
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                      <span className="text-sm font-bold text-muted-foreground">
-                        {entry.position}
-                      </span>
+                {queuedEntries.map((entry) => {
+                  const isMe = isValidCpf && entry.reservation.participant.cpf === unmaskCpf;
+                  return (
+                    <div
+                      key={entry.id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl border transition-colors",
+                        isMe
+                          ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20"
+                          : "bg-card border-border hover:border-border/80"
+                      )}
+                      data-testid={`queue-entry-${entry.id}`}
+                    >
+                      <div className={cn(
+                        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
+                        isMe ? "bg-primary text-white" : "bg-muted"
+                      )}>
+                        <span className={cn("text-sm font-bold", isMe ? "text-white" : "text-muted-foreground")}>
+                          {entry.position}
+                        </span>
+                      </div>
+                      <img
+                        src={entry.reservation.song.thumbnailUrl}
+                        alt=""
+                        className="w-14 h-10 rounded-lg object-cover flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-tight line-clamp-1">
+                          {entry.reservation.song.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {entry.reservation.participant.name} ·{" "}
+                          {maskCPFPartial(entry.reservation.participant.cpf)}
+                          {isMe && <span className="ml-1.5 text-primary font-medium">← você</span>}
+                        </p>
+                      </div>
                     </div>
-                    <img
-                      src={entry.reservation.song.thumbnailUrl}
-                      alt=""
-                      className="w-14 h-10 rounded-lg object-cover flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-tight line-clamp-1">
-                        {entry.reservation.song.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {entry.reservation.participant.name} ·{" "}
-                        {maskCPFPartial(entry.reservation.participant.cpf)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
