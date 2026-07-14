@@ -162,7 +162,9 @@ export default function Player() {
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
-        } catch (_) {}
+        } catch {
+          // The IFrame API may already have removed the underlying element.
+        }
         playerRef.current = null;
       }
     };

@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import {
-  useGetOperatorMe,
   useOperatorLogin,
   useOperatorLogout,
-  useListSessions,
   useCreateSession,
   useUpdateSessionStatus,
   useGetQueue,
@@ -35,7 +33,6 @@ import {
   Mic2,
   Users,
   Music,
-  BarChart3,
   Plus,
   LogOut,
   Lock,
@@ -52,10 +49,6 @@ export default function Operator() {
   const [password, setPassword] = useState("");
   const [newSessionName, setNewSessionName] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
-
-  const { data: sessions } = useListSessions({
-    query: { queryKey: getListSessionsQueryKey() },
-  });
 
   const { data: queue } = useGetQueue(activeSession?.id || "", {
     query: {

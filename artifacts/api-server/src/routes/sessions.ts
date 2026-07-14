@@ -1,17 +1,18 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { sessionsTable, reservationsTable, queueEntriesTable, participantsTable } from "@workspace/db";
-import { eq, and, inArray, count, countDistinct } from "drizzle-orm";
+import { sessionsTable, reservationsTable } from "@workspace/db";
+import { eq, inArray, count, countDistinct } from "drizzle-orm";
 import { CreateSessionBody, UpdateSessionStatusBody } from "@workspace/api-zod";
+import { requireOperator } from "../lib/auth";
 
 const router = Router();
 
-router.get("/sessions", async (req, res) => {
+router.get("/sessions", requireOperator, async (_req, res) => {
   const sessions = await db.select().from(sessionsTable).orderBy(sessionsTable.createdAt);
   res.json(sessions);
 });
 
-router.post("/sessions", async (req, res) => {
+router.post("/sessions", requireOperator, async (req, res) => {
   const parsed = CreateSessionBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
@@ -31,13 +32,13 @@ router.get("/sessions/active", async (req, res) => {
   res.json(session);
 });
 
-router.get("/sessions/:sessionId", async (req, res) => {
+router.get("/sessions/:sessionId", requireOperator, async (req, res) => {
   const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, req.params.sessionId));
   if (!session) return res.status(404).json({ error: "Session not found" });
   res.json(session);
 });
 
-router.patch("/sessions/:sessionId/status", async (req, res) => {
+router.patch("/sessions/:sessionId/status", requireOperator, async (req, res) => {
   const parsed = UpdateSessionStatusBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid status" });
 
@@ -56,7 +57,7 @@ router.patch("/sessions/:sessionId/status", async (req, res) => {
   res.json(updated);
 });
 
-router.get("/sessions/:sessionId/summary", async (req, res) => {
+router.get("/sessions/:sessionId/summary", requireOperator, async (req, res) => {
   const { sessionId } = req.params;
 
   const [totalRows] = await db

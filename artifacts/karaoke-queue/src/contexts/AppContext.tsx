@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from "react";
-import { useGetOperatorMe, useOperatorLogin, useOperatorLogout, useGetActiveSession } from "@workspace/api-client-react";
+import { useGetOperatorMe, useGetActiveSession } from "@workspace/api-client-react";
 import type { OperatorSession, Session } from "@workspace/api-client-react";
 
 interface AppContextType {

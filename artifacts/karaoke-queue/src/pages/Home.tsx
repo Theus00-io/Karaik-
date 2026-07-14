@@ -12,7 +12,7 @@ import {
 import type { SongSearchResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppCtx } from "../contexts/AppContext";
-import { formatCPF, unmaskCPF, maskCPFPartial, validateCPF } from "../lib/cpf";
+import { formatCPF, unmaskCPF, validateCPF } from "../lib/cpf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ import {
   Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useGsapStory } from "@/hooks/useGsapStory";
 
 function YouTubePreviewModal({
   song,
@@ -55,6 +56,9 @@ function YouTubePreviewModal({
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="preview-title"
     >
       <div
         className="relative w-full max-w-2xl bg-card border border-border rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150"
@@ -65,6 +69,7 @@ function YouTubePreviewModal({
           onClick={onClose}
           className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
           data-testid="button-close-preview"
+          aria-label="Fechar prévia"
         >
           <X className="w-4 h-4" />
         </button>
@@ -72,18 +77,19 @@ function YouTubePreviewModal({
         {/* Embed */}
         <div className="aspect-video bg-black">
           <iframe
-            src={`https://www.youtube.com/embed/${song.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
+            src={`https://www.youtube-nocookie.com/embed/${song.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             className="w-full h-full"
             title={song.title}
+            loading="lazy"
           />
         </div>
 
         {/* Info + actions */}
         <div className="p-4 flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <p className="font-semibold leading-snug line-clamp-2">{song.title}</p>
+            <p id="preview-title" className="font-semibold leading-snug line-clamp-2">{song.title}</p>
             <p className="text-sm text-muted-foreground mt-0.5">{song.channelName}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
@@ -130,8 +136,10 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; colo
 };
 
 export default function Home() {
+  const pageRef = useRef<HTMLDivElement>(null);
+  useGsapStory(pageRef);
   const [, setLocation] = useLocation();
-  const { activeSession, refetchSession } = useAppCtx();
+  const { activeSession, operator } = useAppCtx();
   const queryClient = useQueryClient();
 
   // Form state
@@ -293,19 +301,17 @@ export default function Home() {
   const queuedEntries = queue?.filter((e) => e.reservation.status === "QUEUED") || [];
 
   const AVG_SONG_MIN = 3.5;
+  const myReservationIds = new Set(extrato?.map((reservation) => reservation.id) ?? []);
   const myQueueEntry = isValidCpf
-    ? queue?.find((e) => e.reservation.participant.cpf === unmaskCpf && e.reservation.status === "QUEUED")
+    ? queue?.find((e) => myReservationIds.has(e.reservation.id) && e.reservation.status === "QUEUED")
     : undefined;
   const songsAhead = myQueueEntry ? myQueueEntry.position - 1 : 0;
   const estimatedMin = Math.round(songsAhead * AVG_SONG_MIN);
 
-  // Auto-open extrato when user is detected in the queue
-  useEffect(() => {
-    if (myQueueEntry) setShowExtrato(true);
-  }, [!!myQueueEntry]); // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div ref={pageRef} className="min-h-screen bg-background text-foreground overflow-clip">
+      <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
+      <div data-scroll-progress className="scroll-progress" aria-hidden="true" />
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -322,7 +328,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
-            {activeSession?.status === "OPEN" && playingEntry && (
+            {operator && activeSession?.status === "OPEN" && playingEntry && (
               <Button
                 size="sm"
                 onClick={() => setLocation("/player")}
@@ -339,6 +345,7 @@ export default function Home() {
               onClick={() => setLocation("/operator")}
               className="w-9 h-9 text-muted-foreground hover:text-foreground"
               data-testid="button-operator-panel"
+              aria-label="Abrir painel do operador"
             >
               <Settings className="w-4 h-4" />
             </Button>
@@ -348,7 +355,7 @@ export default function Home() {
 
       {/* No active session banner */}
       {!activeSession && (
-        <div className="max-w-6xl mx-auto px-4 pt-8">
+        <main id="main-content" className="max-w-6xl mx-auto px-4 pt-8">
           <div className="rounded-2xl border border-border bg-card p-8 text-center">
             <Mic2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-bold mb-2">Nenhuma sessão ativa</h2>
@@ -359,13 +366,39 @@ export default function Home() {
               Painel do Operador
             </Button>
           </div>
-        </div>
+        </main>
       )}
 
       {activeSession && (
-        <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <>
+        <section data-hero className="hero-shell" aria-labelledby="hero-title">
+          <div className="hero-grid max-w-6xl mx-auto px-4">
+            <div data-hero-copy className="hero-copy">
+              <p className="eyebrow"><span aria-hidden="true" /> A noite está no ar</p>
+              <h2 id="hero-title">Sua voz.<br /><em>Sua vez.</em></h2>
+              <p className="hero-lead">Escolha a música, acompanhe a fila em tempo real e prepare o refrão. Sem fichas, sem confusão.</p>
+              <div className="hero-actions">
+                <Button size="lg" onClick={() => document.querySelector("#reserve-form")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full px-7 h-12">
+                  <Mic2 className="w-4 h-4" /> Escolher música
+                </Button>
+                <span className="session-pill"><i /> {activeSession.name}</span>
+              </div>
+            </div>
+            <div data-hero-orbit className="hero-art" aria-hidden="true">
+              <svg viewBox="0 0 520 520">
+                <defs><linearGradient id="signal" x1="0" x2="1"><stop offset="0" stopColor="#a855f7" /><stop offset="1" stopColor="#22d3ee" /></linearGradient></defs>
+                <circle cx="260" cy="260" r="205" className="orbit orbit-a" />
+                <circle cx="260" cy="260" r="148" className="orbit orbit-b" />
+                <path data-signal-path d="M32 276 C88 276 94 206 132 206 S174 326 216 326 252 158 294 158 332 302 370 302 410 232 488 232" className="signal-path" />
+                <circle cx="260" cy="260" r="82" className="vinyl" />
+                <circle cx="260" cy="260" r="16" className="vinyl-core" />
+              </svg>
+            </div>
+          </div>
+        </section>
+        <main id="main-content" className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* LEFT: Reservation Form */}
-          <div className="space-y-5">
+          <div id="reserve-form" data-reveal className="space-y-5 scroll-mt-24">
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">
                 Reservar Música
@@ -591,11 +624,11 @@ export default function Home() {
                   <Music className="w-4 h-4" />
                   Meu Extrato
                   <ChevronRight
-                    className={cn("w-4 h-4 transition-transform", showExtrato && "rotate-90")}
+                    className={cn("w-4 h-4 transition-transform", (showExtrato || !!myQueueEntry) && "rotate-90")}
                   />
                 </button>
 
-                {showExtrato && extrato && (
+                {(showExtrato || !!myQueueEntry) && extrato && (
                   <div className="space-y-2">
                     {extrato.length === 0 ? (
                       <p className="text-sm text-muted-foreground italic">
@@ -687,7 +720,7 @@ export default function Home() {
           </div>
 
           {/* RIGHT: Live Queue */}
-          <div>
+          <div data-reveal>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">
               Fila ao Vivo
               {queue && (
@@ -757,7 +790,7 @@ export default function Home() {
 
                 {/* Queued entries */}
                 {queuedEntries.map((entry) => {
-                  const isMe = isValidCpf && entry.reservation.participant.cpf === unmaskCpf;
+                  const isMe = isValidCpf && myReservationIds.has(entry.reservation.id);
                   return (
                     <div
                       key={entry.id}
@@ -787,8 +820,7 @@ export default function Home() {
                           {entry.reservation.song.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {entry.reservation.participant.name} ·{" "}
-                          {maskCPFPartial(entry.reservation.participant.cpf)}
+                          {entry.reservation.participant.name}
                           {isMe && <span className="ml-1.5 text-primary font-medium">← você</span>}
                         </p>
                       </div>
@@ -798,8 +830,19 @@ export default function Home() {
               </div>
             )}
           </div>
-        </div>
+        </main>
+        </>
       )}
+
+      <footer className="border-t border-border mt-10">
+        <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between text-sm text-muted-foreground">
+          <div><strong className="text-foreground">KaraoKê Queue</strong><p>Sua voz, sua vez — com a fila sob controle.</p></div>
+          <nav aria-label="Links do rodapé" className="flex gap-4">
+            <button className="hover:text-foreground" onClick={() => setLocation("/qr")}>QR Code</button>
+            <button className="hover:text-foreground" onClick={() => setLocation("/operator")}>Operador</button>
+          </nav>
+        </div>
+      </footer>
 
       {/* YouTube Preview Modal */}
       {previewSong && (
