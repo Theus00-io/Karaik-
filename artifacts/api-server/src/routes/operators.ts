@@ -83,7 +83,7 @@ router.post("/operators/login", loginLimiter, async (req, res) => {
   }
 
   setSessionCookie(res, createSessionToken(operator.id));
-  res.json({
+  return res.json({
     id: operator.id,
     username: operator.username,
     displayName: operator.displayName,
@@ -102,7 +102,7 @@ router.get("/operators/me", requireOperator, async (_req, res) => {
     .where(eq(operatorsTable.id, res.locals.operatorId as string));
 
   if (!operator) return res.status(401).json({ error: "Session expired" });
-  res.json({
+  return res.json({
     id: operator.id,
     username: operator.username,
     displayName: operator.displayName,

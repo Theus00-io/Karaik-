@@ -93,7 +93,7 @@ router.post("/sessions/:sessionId/reservations", async (req, res) => {
     })
     .returning();
 
-  res.status(201).json({
+  return res.status(201).json({
     ...entry,
     reservation: { ...reservation, participant, song },
   });
@@ -155,7 +155,7 @@ router.delete("/sessions/:sessionId/reservations/:reservationId/cancel", async (
 
   const [song] = await db.select().from(songsTable).where(eq(songsTable.id, updated.songId));
 
-  res.json({ ...updated, participant, song });
+  return res.json({ ...updated, participant, song });
 });
 
 router.get("/sessions/:sessionId/reservations/by-cpf/:cpf", async (req, res) => {
@@ -185,7 +185,7 @@ router.get("/sessions/:sessionId/reservations/by-cpf/:cpf", async (req, res) => 
     })
   );
 
-  res.json(withRelations);
+  return res.json(withRelations);
 });
 
 export default router;

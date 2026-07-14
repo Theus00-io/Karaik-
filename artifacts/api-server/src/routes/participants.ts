@@ -4,6 +4,7 @@ import { participantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateParticipantBody } from "@workspace/api-zod";
 import { requireOperator } from "../lib/auth";
+import { paramAsString } from "../lib/params";
 
 const router = Router();
 
@@ -11,10 +12,10 @@ router.get("/participants/by-cpf/:cpf", requireOperator, async (req, res) => {
   const [participant] = await db
     .select()
     .from(participantsTable)
-    .where(eq(participantsTable.cpf, req.params.cpf));
+    .where(eq(participantsTable.cpf, paramAsString(req.params.cpf)));
 
   if (!participant) return res.status(404).json({ error: "Participant not found" });
-  res.json(participant);
+  return res.json(participant);
 });
 
 router.post("/participants", async (req, res) => {
@@ -29,7 +30,7 @@ router.post("/participants", async (req, res) => {
   if (existing.length > 0) return res.status(409).json({ error: "CPF already registered" });
 
   const [participant] = await db.insert(participantsTable).values(parsed.data).returning();
-  res.status(201).json(participant);
+  return res.status(201).json(participant);
 });
 
 export default router;

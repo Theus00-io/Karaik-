@@ -12,7 +12,7 @@ import {
 import type { SongSearchResult } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppCtx } from "../contexts/AppContext";
-import { formatCPF, unmaskCPF, validateCPF } from "../lib/cpf";
+import { formatCPF, maskCPFPartial, unmaskCPF, validateCPF } from "../lib/cpf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -268,10 +268,22 @@ export default function Home() {
   };
 
   const handleReserve = () => {
-    if (!activeSession) return toast.error("Nenhuma sessão ativa.");
-    if (!isValidCpf) return toast.error("CPF inválido.");
-    if (!name.trim()) return toast.error("Digite seu nome.");
-    if (!selectedSong) return toast.error("Selecione uma música.");
+    if (!activeSession) {
+      toast.error("Nenhuma sessão ativa.");
+      return;
+    }
+    if (!isValidCpf) {
+      toast.error("CPF inválido.");
+      return;
+    }
+    if (!name.trim()) {
+      toast.error("Digite seu nome.");
+      return;
+    }
+    if (!selectedSong) {
+      toast.error("Selecione uma música.");
+      return;
+    }
 
     createReservation.mutate({
       sessionId: activeSession.id,

@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { eq, asc, and, gt, sql } from "drizzle-orm";
 import { requireOperator } from "../lib/auth";
+import { paramAsString } from "../lib/params";
 
 const router = Router();
 
@@ -36,7 +37,7 @@ async function buildQueueEntry(entry: typeof queueEntriesTable.$inferSelect) {
 }
 
 router.get("/sessions/:sessionId/queue", async (req, res) => {
-  const { sessionId } = req.params;
+  const sessionId = paramAsString(req.params.sessionId);
 
   const entries = await db
     .select()
@@ -45,11 +46,11 @@ router.get("/sessions/:sessionId/queue", async (req, res) => {
     .orderBy(asc(queueEntriesTable.position));
 
   const withRelations = await Promise.all(entries.map(buildQueueEntry));
-  res.json(withRelations);
+  return res.json(withRelations);
 });
 
 router.post("/queue-entries/:entryId/play", requireOperator, async (req, res) => {
-  const { entryId } = req.params;
+  const entryId = paramAsString(req.params.entryId);
 
   const [entry] = await db
     .select()
@@ -72,11 +73,11 @@ router.post("/queue-entries/:entryId/play", requireOperator, async (req, res) =>
     .from(songsTable)
     .where(eq(songsTable.id, reservation.songId));
 
-  res.json({ ...reservation, participant, song });
+  return res.json({ ...reservation, participant, song });
 });
 
 router.post("/queue-entries/:entryId/finish", requireOperator, async (req, res) => {
-  const { entryId } = req.params;
+  const entryId = paramAsString(req.params.entryId);
 
   const [entry] = await db
     .select()
@@ -104,11 +105,11 @@ router.post("/queue-entries/:entryId/finish", requireOperator, async (req, res) 
     .from(songsTable)
     .where(eq(songsTable.id, reservation.songId));
 
-  res.json({ ...reservation, participant, song });
+  return res.json({ ...reservation, participant, song });
 });
 
 router.post("/queue-entries/:entryId/skip", requireOperator, async (req, res) => {
-  const { entryId } = req.params;
+  const entryId = paramAsString(req.params.entryId);
 
   const [entry] = await db
     .select()
@@ -134,11 +135,11 @@ router.post("/queue-entries/:entryId/skip", requireOperator, async (req, res) =>
     .from(songsTable)
     .where(eq(songsTable.id, reservation.songId));
 
-  res.json({ ...reservation, participant, song });
+  return res.json({ ...reservation, participant, song });
 });
 
 router.delete("/queue-entries/:entryId/remove", requireOperator, async (req, res) => {
-  const { entryId } = req.params;
+  const entryId = paramAsString(req.params.entryId);
 
   const [entry] = await db
     .select()
@@ -164,7 +165,7 @@ router.delete("/queue-entries/:entryId/remove", requireOperator, async (req, res
     .from(songsTable)
     .where(eq(songsTable.id, reservation.songId));
 
-  res.json({ ...reservation, participant, song });
+  return res.json({ ...reservation, participant, song });
 });
 
 async function recompactPositions(sessionId: string, fromPosition: number) {

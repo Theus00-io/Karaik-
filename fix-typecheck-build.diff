@@ -1,0 +1,349 @@
+diff --git a/artifacts/api-server/src/lib/params.ts b/artifacts/api-server/src/lib/params.ts
+new file mode 100644
+index 0000000..4246986
+--- /dev/null
++++ b/artifacts/api-server/src/lib/params.ts
+@@ -0,0 +1,9 @@
++/**
++ * Express 5 tipa req.params[chave] como `string | string[]` (para suportar
++ * parâmetros repetidos/wildcards). Nas nossas rotas, os params são sempre
++ * um único segmento, então normalizamos para string com segurança.
++ */
++export function paramAsString(value: string | string[] | undefined): string {
++  if (Array.isArray(value)) return value[0] ?? "";
++  return value ?? "";
++}
+diff --git a/artifacts/api-server/src/routes/operators.ts b/artifacts/api-server/src/routes/operators.ts
+index 4043072..feb5b3e 100644
+--- a/artifacts/api-server/src/routes/operators.ts
++++ b/artifacts/api-server/src/routes/operators.ts
+@@ -83,7 +83,7 @@ router.post("/operators/login", loginLimiter, async (req, res) => {
+   }
+ 
+   setSessionCookie(res, createSessionToken(operator.id));
+-  res.json({
++  return res.json({
+     id: operator.id,
+     username: operator.username,
+     displayName: operator.displayName,
+@@ -102,7 +102,7 @@ router.get("/operators/me", requireOperator, async (_req, res) => {
+     .where(eq(operatorsTable.id, res.locals.operatorId as string));
+ 
+   if (!operator) return res.status(401).json({ error: "Session expired" });
+-  res.json({
++  return res.json({
+     id: operator.id,
+     username: operator.username,
+     displayName: operator.displayName,
+diff --git a/artifacts/api-server/src/routes/participants.ts b/artifacts/api-server/src/routes/participants.ts
+index 2abb50c..561aff4 100644
+--- a/artifacts/api-server/src/routes/participants.ts
++++ b/artifacts/api-server/src/routes/participants.ts
+@@ -4,6 +4,7 @@ import { participantsTable } from "@workspace/db";
+ import { eq } from "drizzle-orm";
+ import { CreateParticipantBody } from "@workspace/api-zod";
+ import { requireOperator } from "../lib/auth";
++import { paramAsString } from "../lib/params";
+ 
+ const router = Router();
+ 
+@@ -11,10 +12,10 @@ router.get("/participants/by-cpf/:cpf", requireOperator, async (req, res) => {
+   const [participant] = await db
+     .select()
+     .from(participantsTable)
+-    .where(eq(participantsTable.cpf, req.params.cpf));
++    .where(eq(participantsTable.cpf, paramAsString(req.params.cpf)));
+ 
+   if (!participant) return res.status(404).json({ error: "Participant not found" });
+-  res.json(participant);
++  return res.json(participant);
+ });
+ 
+ router.post("/participants", async (req, res) => {
+@@ -29,7 +30,7 @@ router.post("/participants", async (req, res) => {
+   if (existing.length > 0) return res.status(409).json({ error: "CPF already registered" });
+ 
+   const [participant] = await db.insert(participantsTable).values(parsed.data).returning();
+-  res.status(201).json(participant);
++  return res.status(201).json(participant);
+ });
+ 
+ export default router;
+diff --git a/artifacts/api-server/src/routes/queue.ts b/artifacts/api-server/src/routes/queue.ts
+index 55eedaf..af53269 100644
+--- a/artifacts/api-server/src/routes/queue.ts
++++ b/artifacts/api-server/src/routes/queue.ts
+@@ -8,6 +8,7 @@ import {
+ } from "@workspace/db";
+ import { eq, asc, and, gt, sql } from "drizzle-orm";
+ import { requireOperator } from "../lib/auth";
++import { paramAsString } from "../lib/params";
+ 
+ const router = Router();
+ 
+@@ -36,7 +37,7 @@ async function buildQueueEntry(entry: typeof queueEntriesTable.$inferSelect) {
+ }
+ 
+ router.get("/sessions/:sessionId/queue", async (req, res) => {
+-  const { sessionId } = req.params;
++  const sessionId = paramAsString(req.params.sessionId);
+ 
+   const entries = await db
+     .select()
+@@ -45,11 +46,11 @@ router.get("/sessions/:sessionId/queue", async (req, res) => {
+     .orderBy(asc(queueEntriesTable.position));
+ 
+   const withRelations = await Promise.all(entries.map(buildQueueEntry));
+-  res.json(withRelations);
++  return res.json(withRelations);
+ });
+ 
+ router.post("/queue-entries/:entryId/play", requireOperator, async (req, res) => {
+-  const { entryId } = req.params;
++  const entryId = paramAsString(req.params.entryId);
+ 
+   const [entry] = await db
+     .select()
+@@ -72,11 +73,11 @@ router.post("/queue-entries/:entryId/play", requireOperator, async (req, res) =>
+     .from(songsTable)
+     .where(eq(songsTable.id, reservation.songId));
+ 
+-  res.json({ ...reservation, participant, song });
++  return res.json({ ...reservation, participant, song });
+ });
+ 
+ router.post("/queue-entries/:entryId/finish", requireOperator, async (req, res) => {
+-  const { entryId } = req.params;
++  const entryId = paramAsString(req.params.entryId);
+ 
+   const [entry] = await db
+     .select()
+@@ -104,11 +105,11 @@ router.post("/queue-entries/:entryId/finish", requireOperator, async (req, res)
+     .from(songsTable)
+     .where(eq(songsTable.id, reservation.songId));
+ 
+-  res.json({ ...reservation, participant, song });
++  return res.json({ ...reservation, participant, song });
+ });
+ 
+ router.post("/queue-entries/:entryId/skip", requireOperator, async (req, res) => {
+-  const { entryId } = req.params;
++  const entryId = paramAsString(req.params.entryId);
+ 
+   const [entry] = await db
+     .select()
+@@ -134,11 +135,11 @@ router.post("/queue-entries/:entryId/skip", requireOperator, async (req, res) =>
+     .from(songsTable)
+     .where(eq(songsTable.id, reservation.songId));
+ 
+-  res.json({ ...reservation, participant, song });
++  return res.json({ ...reservation, participant, song });
+ });
+ 
+ router.delete("/queue-entries/:entryId/remove", requireOperator, async (req, res) => {
+-  const { entryId } = req.params;
++  const entryId = paramAsString(req.params.entryId);
+ 
+   const [entry] = await db
+     .select()
+@@ -164,7 +165,7 @@ router.delete("/queue-entries/:entryId/remove", requireOperator, async (req, res
+     .from(songsTable)
+     .where(eq(songsTable.id, reservation.songId));
+ 
+-  res.json({ ...reservation, participant, song });
++  return res.json({ ...reservation, participant, song });
+ });
+ 
+ async function recompactPositions(sessionId: string, fromPosition: number) {
+diff --git a/artifacts/api-server/src/routes/reservations.ts b/artifacts/api-server/src/routes/reservations.ts
+index 9a92957..cf16f0d 100644
+--- a/artifacts/api-server/src/routes/reservations.ts
++++ b/artifacts/api-server/src/routes/reservations.ts
+@@ -93,7 +93,7 @@ router.post("/sessions/:sessionId/reservations", async (req, res) => {
+     })
+     .returning();
+ 
+-  res.status(201).json({
++  return res.status(201).json({
+     ...entry,
+     reservation: { ...reservation, participant, song },
+   });
+@@ -155,7 +155,7 @@ router.delete("/sessions/:sessionId/reservations/:reservationId/cancel", async (
+ 
+   const [song] = await db.select().from(songsTable).where(eq(songsTable.id, updated.songId));
+ 
+-  res.json({ ...updated, participant, song });
++  return res.json({ ...updated, participant, song });
+ });
+ 
+ router.get("/sessions/:sessionId/reservations/by-cpf/:cpf", async (req, res) => {
+@@ -185,7 +185,7 @@ router.get("/sessions/:sessionId/reservations/by-cpf/:cpf", async (req, res) =>
+     })
+   );
+ 
+-  res.json(withRelations);
++  return res.json(withRelations);
+ });
+ 
+ export default router;
+diff --git a/artifacts/api-server/src/routes/sessions.ts b/artifacts/api-server/src/routes/sessions.ts
+index 4cc10c8..be47caa 100644
+--- a/artifacts/api-server/src/routes/sessions.ts
++++ b/artifacts/api-server/src/routes/sessions.ts
+@@ -4,6 +4,7 @@ import { sessionsTable, reservationsTable } from "@workspace/db";
+ import { eq, inArray, count, countDistinct } from "drizzle-orm";
+ import { CreateSessionBody, UpdateSessionStatusBody } from "@workspace/api-zod";
+ import { requireOperator } from "../lib/auth";
++import { paramAsString } from "../lib/params";
+ 
+ const router = Router();
+ 
+@@ -17,7 +18,7 @@ router.post("/sessions", requireOperator, async (req, res) => {
+   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+ 
+   const [session] = await db.insert(sessionsTable).values({ name: parsed.data.name }).returning();
+-  res.status(201).json(session);
++  return res.status(201).json(session);
+ });
+ 
+ router.get("/sessions/active", async (req, res) => {
+@@ -29,20 +30,22 @@ router.get("/sessions/active", async (req, res) => {
+     .limit(1);
+ 
+   if (!session) return res.status(404).json({ error: "No active session" });
+-  res.json(session);
++  return res.json(session);
+ });
+ 
+ router.get("/sessions/:sessionId", requireOperator, async (req, res) => {
+-  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, req.params.sessionId));
++  const sessionId = paramAsString(req.params.sessionId);
++  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+   if (!session) return res.status(404).json({ error: "Session not found" });
+-  res.json(session);
++  return res.json(session);
+ });
+ 
+ router.patch("/sessions/:sessionId/status", requireOperator, async (req, res) => {
+   const parsed = UpdateSessionStatusBody.safeParse(req.body);
+   if (!parsed.success) return res.status(400).json({ error: "Invalid status" });
+ 
+-  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, req.params.sessionId));
++  const sessionId = paramAsString(req.params.sessionId);
++  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
+   if (!session) return res.status(404).json({ error: "Session not found" });
+ 
+   const updates: Record<string, unknown> = { status: parsed.data.status };
+@@ -51,14 +54,14 @@ router.patch("/sessions/:sessionId/status", requireOperator, async (req, res) =>
+   const [updated] = await db
+     .update(sessionsTable)
+     .set(updates)
+-    .where(eq(sessionsTable.id, req.params.sessionId))
++    .where(eq(sessionsTable.id, sessionId))
+     .returning();
+ 
+-  res.json(updated);
++  return res.json(updated);
+ });
+ 
+ router.get("/sessions/:sessionId/summary", requireOperator, async (req, res) => {
+-  const { sessionId } = req.params;
++  const sessionId = paramAsString(req.params.sessionId);
+ 
+   const [totalRows] = await db
+     .select({ count: count() })
+diff --git a/artifacts/api-server/src/routes/songs.ts b/artifacts/api-server/src/routes/songs.ts
+index 52c9d9d..3535c6f 100644
+--- a/artifacts/api-server/src/routes/songs.ts
++++ b/artifacts/api-server/src/routes/songs.ts
+@@ -52,10 +52,10 @@ router.get("/songs/search", async (req, res) => {
+         `https://img.youtube.com/vi/${item.id.videoId}/mqdefault.jpg`,
+     }));
+ 
+-    res.json(results);
++    return res.json(results);
+   } catch (err) {
+     req.log.error({ err }, "YouTube search failed");
+-    res.status(500).json({ error: "YouTube search failed" });
++    return res.status(500).json({ error: "YouTube search failed" });
+   }
+ });
+ 
+diff --git a/artifacts/karaoke-queue/src/pages/Home.tsx b/artifacts/karaoke-queue/src/pages/Home.tsx
+index 6230205..019b01a 100644
+--- a/artifacts/karaoke-queue/src/pages/Home.tsx
++++ b/artifacts/karaoke-queue/src/pages/Home.tsx
+@@ -12,7 +12,7 @@ import {
+ import type { SongSearchResult } from "@workspace/api-client-react";
+ import { useQueryClient } from "@tanstack/react-query";
+ import { useAppCtx } from "../contexts/AppContext";
+-import { formatCPF, unmaskCPF, validateCPF } from "../lib/cpf";
++import { formatCPF, maskCPFPartial, unmaskCPF, validateCPF } from "../lib/cpf";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+ import { toast } from "sonner";
+@@ -268,10 +268,22 @@ export default function Home() {
+   };
+ 
+   const handleReserve = () => {
+-    if (!activeSession) return toast.error("Nenhuma sessão ativa.");
+-    if (!isValidCpf) return toast.error("CPF inválido.");
+-    if (!name.trim()) return toast.error("Digite seu nome.");
+-    if (!selectedSong) return toast.error("Selecione uma música.");
++    if (!activeSession) {
++      toast.error("Nenhuma sessão ativa.");
++      return;
++    }
++    if (!isValidCpf) {
++      toast.error("CPF inválido.");
++      return;
++    }
++    if (!name.trim()) {
++      toast.error("Digite seu nome.");
++      return;
++    }
++    if (!selectedSong) {
++      toast.error("Selecione uma música.");
++      return;
++    }
+ 
+     createReservation.mutate({
+       sessionId: activeSession.id,
+diff --git a/artifacts/karaoke-queue/src/pages/Operator.tsx b/artifacts/karaoke-queue/src/pages/Operator.tsx
+index c4cf501..2fc08c6 100644
+--- a/artifacts/karaoke-queue/src/pages/Operator.tsx
++++ b/artifacts/karaoke-queue/src/pages/Operator.tsx
+@@ -249,7 +249,7 @@ export default function Operator() {
+           <Button
+             variant="ghost"
+             size="sm"
+-            onClick={() => logoutMutation.mutate({})}
++            onClick={() => logoutMutation.mutate()}
+             className="text-muted-foreground gap-1.5"
+             data-testid="button-logout"
+           >
+diff --git a/artifacts/karaoke-queue/src/pages/Player.tsx b/artifacts/karaoke-queue/src/pages/Player.tsx
+index 89feda7..ecb6dbd 100644
+--- a/artifacts/karaoke-queue/src/pages/Player.tsx
++++ b/artifacts/karaoke-queue/src/pages/Player.tsx
+@@ -102,6 +102,7 @@ export default function Player() {
+         playMutation.mutate({ entryId: next.id });
+         isTransitioningRef.current = false;
+       }
++      return undefined;
+     }
+   }, [countdown]); // eslint-disable-line react-hooks/exhaustive-deps
+ 
+diff --git a/package.json b/package.json
+index ab85e90..55f0d02 100644
+--- a/package.json
++++ b/package.json
+@@ -6,7 +6,7 @@
+   "license": "MIT",
+   "scripts": {
+     "preinstall": "node ./scripts/enforce-pnpm.mjs",
+-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
++    "build": "pnpm run typecheck && pnpm -r --filter \"!./artifacts/mockup-sandbox\" --if-present run build",
+     "typecheck:libs": "tsc --build",
+     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+     "lint": "eslint artifacts/api-server/src artifacts/karaoke-queue/src --max-warnings 0",

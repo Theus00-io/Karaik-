@@ -102,6 +102,7 @@ export default function Player() {
         playMutation.mutate({ entryId: next.id });
         isTransitioningRef.current = false;
       }
+      return undefined;
     }
   }, [countdown]); // eslint-disable-line react-hooks/exhaustive-deps
 

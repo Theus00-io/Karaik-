@@ -249,7 +249,7 @@ export default function Operator() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => logoutMutation.mutate({})}
+            onClick={() => logoutMutation.mutate()}
             className="text-muted-foreground gap-1.5"
             data-testid="button-logout"
           >

@@ -52,10 +52,10 @@ router.get("/songs/search", async (req, res) => {
         `https://img.youtube.com/vi/${item.id.videoId}/mqdefault.jpg`,
     }));
 
-    res.json(results);
+    return res.json(results);
   } catch (err) {
     req.log.error({ err }, "YouTube search failed");
-    res.status(500).json({ error: "YouTube search failed" });
+    return res.status(500).json({ error: "YouTube search failed" });
   }
 });
 

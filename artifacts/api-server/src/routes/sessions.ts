@@ -4,6 +4,7 @@ import { sessionsTable, reservationsTable } from "@workspace/db";
 import { eq, inArray, count, countDistinct } from "drizzle-orm";
 import { CreateSessionBody, UpdateSessionStatusBody } from "@workspace/api-zod";
 import { requireOperator } from "../lib/auth";
+import { paramAsString } from "../lib/params";
 
 const router = Router();
 
@@ -17,7 +18,7 @@ router.post("/sessions", requireOperator, async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
   const [session] = await db.insert(sessionsTable).values({ name: parsed.data.name }).returning();
-  res.status(201).json(session);
+  return res.status(201).json(session);
 });
 
 router.get("/sessions/active", async (req, res) => {
@@ -29,20 +30,22 @@ router.get("/sessions/active", async (req, res) => {
     .limit(1);
 
   if (!session) return res.status(404).json({ error: "No active session" });
-  res.json(session);
+  return res.json(session);
 });
 
 router.get("/sessions/:sessionId", requireOperator, async (req, res) => {
-  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, req.params.sessionId));
+  const sessionId = paramAsString(req.params.sessionId);
+  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
   if (!session) return res.status(404).json({ error: "Session not found" });
-  res.json(session);
+  return res.json(session);
 });
 
 router.patch("/sessions/:sessionId/status", requireOperator, async (req, res) => {
   const parsed = UpdateSessionStatusBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid status" });
 
-  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, req.params.sessionId));
+  const sessionId = paramAsString(req.params.sessionId);
+  const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, sessionId));
   if (!session) return res.status(404).json({ error: "Session not found" });
 
   const updates: Record<string, unknown> = { status: parsed.data.status };
@@ -51,14 +54,14 @@ router.patch("/sessions/:sessionId/status", requireOperator, async (req, res) =>
   const [updated] = await db
     .update(sessionsTable)
     .set(updates)
-    .where(eq(sessionsTable.id, req.params.sessionId))
+    .where(eq(sessionsTable.id, sessionId))
     .returning();
 
-  res.json(updated);
+  return res.json(updated);
 });
 
 router.get("/sessions/:sessionId/summary", requireOperator, async (req, res) => {
-  const { sessionId } = req.params;
+  const sessionId = paramAsString(req.params.sessionId);
 
   const [totalRows] = await db
     .select({ count: count() })
