@@ -2,12 +2,14 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { lazy, Suspense } from "react";
 import { AppProvider } from "./contexts/AppContext";
-import Home from "@/pages/Home";
-import Player from "@/pages/Player";
-import Operator from "@/pages/Operator";
-import NotFound from "@/pages/not-found";
-import QRPage from "@/pages/QR";
+
+const Home = lazy(() => import("@/pages/Home"));
+const Player = lazy(() => import("@/pages/Player"));
+const Operator = lazy(() => import("@/pages/Operator"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+const QRPage = lazy(() => import("@/pages/QR"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,13 +22,15 @@ const queryClient = new QueryClient({
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/player" component={Player} />
-      <Route path="/operator" component={Operator} />
-      <Route path="/qr" component={QRPage} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<div role="status" className="min-h-screen grid place-items-center text-muted-foreground">Carregando experiência…</div>}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/player" component={Player} />
+        <Route path="/operator" component={Operator} />
+        <Route path="/qr" component={QRPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

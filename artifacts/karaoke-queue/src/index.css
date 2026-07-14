@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -110,5 +109,141 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    min-width: 320px;
+    text-rendering: optimizeLegibility;
   }
+
+  :focus-visible {
+    outline: 3px solid hsl(var(--accent));
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    color: hsl(var(--foreground));
+    background: hsl(var(--primary) / 0.45);
+  }
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 1000;
+  transform: translateY(-150%);
+  border-radius: 999px;
+  background: white;
+  color: #16051f;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+
+.skip-link:focus { transform: translateY(0); }
+
+.scroll-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 3px;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+}
+
+.hero-shell {
+  position: relative;
+  min-height: min(720px, calc(100svh - 4rem));
+  display: grid;
+  align-items: center;
+  border-bottom: 1px solid hsl(var(--border));
+  background:
+    radial-gradient(circle at 72% 38%, hsl(var(--primary) / 0.15), transparent 28rem),
+    linear-gradient(180deg, hsl(270 55% 5%), hsl(var(--background)));
+}
+
+.hero-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  pointer-events: none;
+  background-image: linear-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, black, transparent 90%);
+}
+
+.hero-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  align-items: center;
+  gap: 3rem;
+  width: 100%;
+  padding-block: 5rem;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: hsl(var(--accent));
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.eyebrow span, .session-pill i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: hsl(var(--accent));
+  box-shadow: 0 0 18px hsl(var(--accent));
+}
+
+.hero-copy h2 {
+  margin-top: 1.25rem;
+  max-width: 760px;
+  font-size: clamp(4rem, 9vw, 7.8rem);
+  line-height: 0.82;
+  letter-spacing: -0.065em;
+  font-weight: 850;
+}
+
+.hero-copy h2 em { color: hsl(var(--primary)); font-style: normal; }
+
+.hero-lead {
+  max-width: 36rem;
+  margin-top: 2rem;
+  color: hsl(var(--muted-foreground));
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.7;
+}
+
+.hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 2rem; }
+.session-pill { display: inline-flex; align-items: center; gap: 0.6rem; color: hsl(var(--muted-foreground)); font-size: 0.85rem; }
+.session-pill i { width: 0.42rem; height: 0.42rem; background: #4ade80; box-shadow: 0 0 14px #4ade80; }
+.hero-art svg { display: block; width: 100%; height: auto; overflow: visible; }
+.orbit { fill: none; stroke: hsl(var(--foreground) / 0.13); stroke-width: 1; }
+.orbit-a { stroke-dasharray: 7 13; }
+.orbit-b { stroke-dasharray: 2 8; }
+.signal-path { fill: none; stroke: url(#signal); stroke-width: 7; stroke-linecap: round; stroke-dasharray: 520; stroke-dashoffset: 520; filter: drop-shadow(0 0 12px hsl(var(--primary) / 0.7)); }
+.vinyl { fill: hsl(270 45% 9%); stroke: hsl(var(--primary) / 0.65); stroke-width: 2; }
+.vinyl-core { fill: hsl(var(--accent)); filter: drop-shadow(0 0 12px hsl(var(--accent))); }
+
+@media (max-width: 767px) {
+  .hero-shell { min-height: auto; }
+  .hero-grid { grid-template-columns: 1fr; gap: 1rem; padding-block: 4rem 2.5rem; }
+  .hero-copy h2 { font-size: clamp(3.7rem, 19vw, 6rem); }
+  .hero-art { width: min(90%, 420px); margin-inline: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .scroll-progress { display: none; }
 }
