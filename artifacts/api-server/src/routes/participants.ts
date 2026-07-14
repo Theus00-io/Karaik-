@@ -3,10 +3,11 @@ import { db } from "@workspace/db";
 import { participantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateParticipantBody } from "@workspace/api-zod";
+import { requireOperator } from "../lib/auth";
 
 const router = Router();
 
-router.get("/participants/by-cpf/:cpf", async (req, res) => {
+router.get("/participants/by-cpf/:cpf", requireOperator, async (req, res) => {
   const [participant] = await db
     .select()
     .from(participantsTable)

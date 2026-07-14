@@ -7,6 +7,7 @@ import {
   songsTable,
 } from "@workspace/db";
 import { eq, asc, and, gt, sql } from "drizzle-orm";
+import { requireOperator } from "../lib/auth";
 
 const router = Router();
 
@@ -24,7 +25,14 @@ async function buildQueueEntry(entry: typeof queueEntriesTable.$inferSelect) {
     .from(songsTable)
     .where(eq(songsTable.id, reservation.songId));
 
-  return { ...entry, reservation: { ...reservation, participant, song } };
+  return {
+    ...entry,
+    reservation: {
+      ...reservation,
+      participant: { ...participant, cpf: "" },
+      song,
+    },
+  };
 }
 
 router.get("/sessions/:sessionId/queue", async (req, res) => {
@@ -40,7 +48,7 @@ router.get("/sessions/:sessionId/queue", async (req, res) => {
   res.json(withRelations);
 });
 
-router.post("/queue-entries/:entryId/play", async (req, res) => {
+router.post("/queue-entries/:entryId/play", requireOperator, async (req, res) => {
   const { entryId } = req.params;
 
   const [entry] = await db
@@ -67,7 +75,7 @@ router.post("/queue-entries/:entryId/play", async (req, res) => {
   res.json({ ...reservation, participant, song });
 });
 
-router.post("/queue-entries/:entryId/finish", async (req, res) => {
+router.post("/queue-entries/:entryId/finish", requireOperator, async (req, res) => {
   const { entryId } = req.params;
 
   const [entry] = await db
@@ -99,7 +107,7 @@ router.post("/queue-entries/:entryId/finish", async (req, res) => {
   res.json({ ...reservation, participant, song });
 });
 
-router.post("/queue-entries/:entryId/skip", async (req, res) => {
+router.post("/queue-entries/:entryId/skip", requireOperator, async (req, res) => {
   const { entryId } = req.params;
 
   const [entry] = await db
@@ -129,7 +137,7 @@ router.post("/queue-entries/:entryId/skip", async (req, res) => {
   res.json({ ...reservation, participant, song });
 });
 
-router.delete("/queue-entries/:entryId/remove", async (req, res) => {
+router.delete("/queue-entries/:entryId/remove", requireOperator, async (req, res) => {
   const { entryId } = req.params;
 
   const [entry] = await db

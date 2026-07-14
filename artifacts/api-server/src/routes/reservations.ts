@@ -11,25 +11,6 @@ import { CreateReservationBody } from "@workspace/api-zod";
 
 const router = Router();
 
-async function getReservationWithRelations(reservationId: string) {
-  const [res] = await db
-    .select()
-    .from(reservationsTable)
-    .where(eq(reservationsTable.id, reservationId));
-  if (!res) return null;
-
-  const [participant] = await db
-    .select()
-    .from(participantsTable)
-    .where(eq(participantsTable.id, res.participantId));
-  const [song] = await db
-    .select()
-    .from(songsTable)
-    .where(eq(songsTable.id, res.songId));
-
-  return { ...res, participant, song };
-}
-
 router.post("/sessions/:sessionId/reservations", async (req, res) => {
   const { sessionId } = req.params;
   const parsed = CreateReservationBody.safeParse(req.body);
